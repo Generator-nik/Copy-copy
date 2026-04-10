@@ -2,7 +2,7 @@ QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-CONFIG += c++11 console //консолька я добавил console чтобы работала консоль так как по умолчанию это графическая сборка( не работали принты и тд)
+CONFIG += c++11 console //консолька я добавил console чтобы работала консоль так как по умолчанию это графическая сборка( не работали принты и тд) куку
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
