@@ -5,6 +5,9 @@
 #include <QTextEdit>
 #include <QTextCharFormat>
 #include <QTextBlockFormat>
+#include <QStackedWidget>
+#include "template.h"
+#include "templateeditor.h"
 
 class TextDocument;
 
@@ -28,17 +31,25 @@ private slots:
     void setTextAlignment(Qt::Alignment alignment);
     void insertBulletList();
     void insertNumberedList();
+    void newTemplate();
+    void applyCurrentFormatToField();
 
 private:
+    QStackedWidget *centralStack;
     QTextEdit *textEdit;
+    TemplateEditor *templateEditor;
     TextDocument *document;
+    Template *currentTemplate;
+
+    QFont m_currentFont;
+    QColor m_currentColor;
+
     void createMenuBar();
     void createToolBars();
     void updateWindowTitle();
     void connectDocumentSignals();
     void applyCharFormat(const QTextCharFormat &format);
     void applyBlockFormat(const QTextBlockFormat &format);
-
 };
 
 #endif

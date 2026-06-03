@@ -17,8 +17,15 @@ set(PROJECT_SOURCES
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
+        textdocument.cpp   
+        textdocument.h 
+	template.cpp
+	template.h
+	datasource.h
+	datasource.cpp
+	templateeditor.h
+	templateeditor.cpp
 )
-
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(untitled1
         MANUAL_FINALIZATION

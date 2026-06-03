@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "textdocument.h"
+#include "templateeditor.h"
 #include <QMenuBar>
 #include <QMenu>
 #include <QToolBar>
@@ -13,13 +14,25 @@
 #include <QTextImageFormat>
 #include <QFileInfo>
 #include <QTextStream>
+#include <QDebug>
+#include <QStackedWidget>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
+    , centralStack(new QStackedWidget(this))
     , textEdit(new QTextEdit(this))
+    , templateEditor(new TemplateEditor(this))
     , document(new TextDocument(this))
+    , currentTemplate(nullptr)
 {
-    setCentralWidget(textEdit);
+    m_currentFont = QFont("Arial", 12);
+    m_currentColor = Qt::black;
+
+    centralStack->addWidget(textEdit);
+    centralStack->addWidget(templateEditor);
+    centralStack->setCurrentIndex(0);
+
+    setCentralWidget(centralStack);
     createMenuBar();
     createToolBars();
     connectDocumentSignals();
@@ -77,6 +90,59 @@ void MainWindow::createMenuBar()
     exitAction->setShortcut(QKeySequence::Quit);
     connect(exitAction, &QAction::triggered, this, &QWidget::close);
     fileMenu->addAction(exitAction);
+
+    QMenu *templateMenu = menuBar()->addMenu("&Шаблон");
+
+    QAction *newTemplateAction = new QAction("&Новый шаблон", this);
+    connect(newTemplateAction, &QAction::triggered, this, &MainWindow::newTemplate);
+    templateMenu->addAction(newTemplateAction);
+
+    QAction *bgAction = new QAction("&Загрузить фон...", this);
+    connect(bgAction, &QAction::triggered, [this]() {
+        QString path = QFileDialog::getOpenFileName(this, "Выберите фон",
+                        QString(), "Изображения (*.png *.jpg *.jpeg)");
+        if (!path.isEmpty()) {
+            templateEditor->setBackgroundImage(path);
+            if (currentTemplate) {
+                currentTemplate->setBackgroundPath(path);
+            }
+        }
+    });
+    templateMenu->addAction(bgAction);
+
+    templateMenu->addSeparator();
+
+    QAction *saveTemplateAction = new QAction("&Сохранить шаблон...", this);
+    connect(saveTemplateAction, &QAction::triggered, [this]() {
+        if (!currentTemplate) {
+            QMessageBox::warning(this, "Ошибка", "Сначала создайте шаблон.");
+            return;
+        }
+        QString path = QFileDialog::getSaveFileName(this, "Сохранить шаблон",
+                        QString(), "JSON (*.json)");
+        if (!path.isEmpty()) {
+            currentTemplate->saveToJson(path);
+        }
+    });
+    templateMenu->addAction(saveTemplateAction);
+
+    QAction *loadTemplateAction = new QAction("&Загрузить шаблон...", this);
+    connect(loadTemplateAction, &QAction::triggered, [this]() {
+        QString path = QFileDialog::getOpenFileName(this, "Загрузить шаблон",
+                        QString(), "JSON (*.json)");
+        if (path.isEmpty()) return;
+
+        if (currentTemplate) delete currentTemplate;
+        currentTemplate = new Template("");
+        currentTemplate->loadFromJson(path);
+        templateEditor->setTemplate(currentTemplate);
+        centralStack->setCurrentIndex(1);
+
+        if (!currentTemplate->backgroundPath().isEmpty()) {
+            templateEditor->setBackgroundImage(currentTemplate->backgroundPath());
+        }
+    });
+    templateMenu->addAction(loadTemplateAction);
 }
 
 void MainWindow::createToolBars()
@@ -84,18 +150,30 @@ void MainWindow::createToolBars()
     QToolBar *formatBar = addToolBar("Форматирование");
 
     QAction *boldAction = new QAction("Жирный", this);
-    boldAction->setShortcut(QKeySequence::Bold);
-    connect(boldAction, &QAction::triggered, this, &MainWindow::setFontBold);
+    boldAction->setCheckable(true);
+    connect(boldAction, &QAction::toggled, [this](bool checked) {
+        m_currentFont.setBold(checked);
+        applyCurrentFormatToField();
+        textEdit->setFontWeight(checked ? QFont::Bold : QFont::Normal);
+    });
     formatBar->addAction(boldAction);
 
     QAction *italicAction = new QAction("Курсив", this);
-    italicAction->setShortcut(QKeySequence::Italic);
-    connect(italicAction, &QAction::triggered, this, &MainWindow::setFontItalic);
+    italicAction->setCheckable(true);
+    connect(italicAction, &QAction::toggled, [this](bool checked) {
+        m_currentFont.setItalic(checked);
+        applyCurrentFormatToField();
+        textEdit->setFontItalic(checked);
+    });
     formatBar->addAction(italicAction);
 
     QAction *underlineAction = new QAction("Подчёркивание", this);
-    underlineAction->setShortcut(QKeySequence::Underline);
-    connect(underlineAction, &QAction::triggered, this, &MainWindow::setFontUnderline);
+    underlineAction->setCheckable(true);
+    connect(underlineAction, &QAction::toggled, [this](bool checked) {
+        m_currentFont.setUnderline(checked);
+        applyCurrentFormatToField();
+        textEdit->setFontUnderline(checked);
+    });
     formatBar->addAction(underlineAction);
 
     formatBar->addSeparator();
@@ -116,8 +194,10 @@ void MainWindow::createToolBars()
 
     QFontComboBox *fontCombo = new QFontComboBox(this);
     fontCombo->setCurrentFont(QFont("Arial"));
-    connect(fontCombo, &QFontComboBox::currentFontChanged, this, [this](const QFont &font) {
-        setFontFamily(font.family());
+    connect(fontCombo, &QFontComboBox::currentFontChanged, [this](const QFont &font) {
+        m_currentFont.setFamily(font.family());
+        applyCurrentFormatToField();
+        textEdit->setFontFamily(font.family());
     });
     formatBar->addWidget(fontCombo);
 
@@ -125,11 +205,49 @@ void MainWindow::createToolBars()
     sizeCombo->addItems({"8", "9", "10", "11", "12", "14", "16", "18", "20", "24", "28", "32", "48"});
     sizeCombo->setCurrentText("12");
     connect(sizeCombo, &QComboBox::currentTextChanged, [this](const QString &text) {
-        setFontSize(text.toInt());
+        int size = text.toInt();
+        m_currentFont.setPointSize(size);
+        applyCurrentFormatToField();
+        textEdit->setFontPointSize(size);
     });
     formatBar->addWidget(sizeCombo);
 
     formatBar->addSeparator();
+
+    QAction *addFieldAction = new QAction("Добавить поле", this);
+    addFieldAction->setCheckable(true);
+    formatBar->addAction(addFieldAction);
+
+    QAction *fillAction = new QAction("Заполнить", this);
+    fillAction->setCheckable(true);
+    formatBar->addAction(fillAction);
+
+    connect(addFieldAction, &QAction::toggled, [this, addFieldAction, fillAction](bool checked) {
+        if (checked) {
+            fillAction->setChecked(false);
+            templateEditor->setFillMode(false);
+        }
+        templateEditor->setAddFieldMode(checked);
+    });
+
+    connect(fillAction, &QAction::toggled, [this, addFieldAction, fillAction](bool checked) {
+        if (checked) {
+            addFieldAction->setChecked(false);
+            templateEditor->setAddFieldMode(false);
+        }
+        templateEditor->setFillMode(checked);
+    });
+}
+
+void MainWindow::newTemplate()
+{
+    if (currentTemplate) {
+        delete currentTemplate;
+    }
+
+    currentTemplate = new Template("Новый шаблон");
+    templateEditor->setTemplate(currentTemplate);
+    centralStack->setCurrentIndex(1);
 }
 
 void MainWindow::newFile()
@@ -266,4 +384,9 @@ void MainWindow::insertNumberedList()
     QTextListFormat listFormat;
     listFormat.setStyle(QTextListFormat::ListDecimal);
     cursor.createList(listFormat);
+}
+
+void MainWindow::applyCurrentFormatToField()
+{
+    templateEditor->applyCurrentFormat(m_currentFont, m_currentColor);
 }
