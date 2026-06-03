@@ -6,8 +6,6 @@
 #include <QRect>
 #include <QStringList>
 #include <QFont>
-#include <QJsonObject>
-#include <QJsonArray>
 
 struct TemplateField
 {
@@ -19,6 +17,12 @@ struct TemplateField
     QFont font;
 };
 
+struct TemplatePage
+{
+    QString backgroundPath;
+    QVector<TemplateField> fields;
+};
+
 class Template
 {
 public:
@@ -28,9 +32,16 @@ public:
     QString name() const;
     void setName(const QString &name);
 
+    int pageCount() const;
+    void addPage(const TemplatePage &page);
+    void insertPage(int index, const TemplatePage &page);
+    void removePage(int index);
+    TemplatePage *page(int index);
+    const TemplatePage *page(int index) const;
+    QVector<TemplatePage> pages() const;
+
     QString backgroundPath() const;
     void setBackgroundPath(const QString &path);
-
     void addField(const TemplateField &field);
     void removeField(const QString &fieldName);
     void removeFieldByIndex(int index);
@@ -43,8 +54,7 @@ public:
 
 private:
     QString m_name;
-    QString m_backgroundPath;
-    QVector<TemplateField> m_fields;
+    QVector<TemplatePage> m_pages;
 };
 
 #endif

@@ -30,7 +30,6 @@ bool DataSource::loadFromCsv(const QString &filePath) {
         return false;
     }
     QTextStream in(&file);
-    in.setCodec("UTF-8");
     m_items.clear();
     while (!in.atEnd()) {
         QString line = in.readLine().trimmed();

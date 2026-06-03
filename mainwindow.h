@@ -6,6 +6,7 @@
 #include <QTextCharFormat>
 #include <QTextBlockFormat>
 #include <QStackedWidget>
+#include <QLabel>
 #include "template.h"
 #include "templateeditor.h"
 
@@ -23,16 +24,18 @@ private slots:
     void newFile();
     void openFile();
     void saveFile();
-    void setFontBold();
-    void setFontItalic();
-    void setFontUnderline();
+    void setFontBold(bool checked);
+    void setFontItalic(bool checked);
+    void setFontUnderline(bool checked);
     void setFontFamily(const QString &family);
     void setFontSize(int size);
     void setTextAlignment(Qt::Alignment alignment);
     void insertBulletList();
     void insertNumberedList();
     void newTemplate();
-    void applyCurrentFormatToField();
+    void toggleViewMode();
+    void exportToPdf();
+    void exportToDocx();
 
 private:
     QStackedWidget *centralStack;
@@ -40,9 +43,10 @@ private:
     TemplateEditor *templateEditor;
     TextDocument *document;
     Template *currentTemplate;
-
     QFont m_currentFont;
     QColor m_currentColor;
+
+    QAction *toggleViewAction;
 
     void createMenuBar();
     void createToolBars();
@@ -50,6 +54,12 @@ private:
     void connectDocumentSignals();
     void applyCharFormat(const QTextCharFormat &format);
     void applyBlockFormat(const QTextBlockFormat &format);
+    void applyCurrentFormatToField();
+
+    void generateHtml(const QString &path);
+    bool importPdfToTemplate(const QString &pdfPath, int dpi = 150);
+
+    QLabel *m_zoomLabel;
 };
 
 #endif
